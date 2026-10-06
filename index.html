@@ -134,7 +134,7 @@ button{font:inherit;color:inherit;cursor:pointer}
   <button class="pill glass" data-go="projects" type="button"><i class="dot" style="background:#2dd4bf"></i>Projects</button>
   <button class="pill glass" data-go="contact" type="button">Contact</button>
   <button class="pill glass" id="lights" type="button" aria-pressed="false">Lights off</button>
-  <button class="pill glass icon-btn" id="music" type="button" aria-pressed="false" aria-label="Background music" title="Music off"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/><path class="slash" d="M3 3l18 18"/></svg></button>
+  <button class="pill glass icon-btn" id="music" type="button" aria-pressed="false" aria-label="Train sounds" title="Train sounds off"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/><path class="slash" d="M3 3l18 18"/></svg></button>
 </nav>
 <div class="ui ctl glass" role="group" aria-label="Train controller">
   <div class="ctl-top"><span><strong id="kmh">0</strong> km/h</span><span class="next" id="next">Next: Vindhyanagar</span></div>
@@ -249,10 +249,16 @@ let renderer;
 try { renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' }); }
 catch (e) { document.body.insertAdjacentHTML('beforeend', '<div class="err">This browser can\'t show 3D graphics. Try a recent Chrome, Edge, Firefox or Safari.</div>'); throw e; }
 const isMobile = matchMedia('(max-width: 760px)').matches || matchMedia('(pointer: coarse)').matches;
-renderer.setPixelRatio(Math.min(devicePixelRatio || 1, isMobile ? 1.5 : 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, isMobile ? 1.25 : 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 $('app').appendChild(renderer.domElement);
+let glLost = false, lostTimer = null;
+renderer.domElement.addEventListener('webglcontextlost', (e) => {
+  e.preventDefault(); glLost = true;
+  lostTimer = setTimeout(() => { const d = document.createElement('button'); d.id = 'glLost'; d.type = 'button'; d.className = 'err'; d.style.cssText = 'border:0;color:inherit;font:inherit;cursor:pointer'; d.textContent = 'The 3D view was paused by your device. Tap to reload.'; d.onclick = () => location.reload(); document.body.appendChild(d); }, 2500);
+});
+renderer.domElement.addEventListener('webglcontextrestored', () => { glLost = false; clearTimeout(lostTimer); const d = document.getElementById('glLost'); if (d) d.remove(); });
 const scene = new THREE.Scene();
 scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), .04).texture;
 scene.environmentIntensity = .42;
@@ -768,111 +774,97 @@ addEventListener('keyup', (e) => { const k = e.key.toLowerCase(); if (e.key === 
 addEventListener('blur', () => { setGo(false); setBrake(false); });
 /* ---------------- sound: soft generative music, horn, rail clicks ---------------- */
 const Sound = (() => {
-  // An Indian rail journey: tanpura drone, bansuri flute in Raag Bhoopali (Sa Re Ga Pa Dha),
-  // and a soft tabla keherwa that fades in as the train picks up speed.
-  const BPM = 80, STEP = 60 / BPM / 2, CYCLE = 16;          // 8th-note steps; one keherwa cycle = 8 matras = 16 steps
-  const SA = 62;                                             // Sa = D4
-  const PHRASES = [
-    [[0, 2], [2, 2], [4, 4], [2, 2], [4, 2], [7, 6]],
-    [[7, 2], [9, 2], [12, 6], [9, 2], [7, 4]],
-    [[4, 2], [7, 2], [9, 4], [7, 2], [4, 2], [2, 2], [0, 6]],
-    [[-3, 2], [0, 2], [2, 2], [4, 4], [2, 2], [0, 6]],
-    [[12, 4], [14, 2], [12, 2], [9, 4], [7, 2], [4, 6]],
-    [[4, 3], [2, 1], [0, 2], [-3, 2], [0, 8]],
-    [[7, 4], [9, 2], [7, 2], [4, 2], [7, 2], [9, 2], [12, 8]],
-    [[9, 2], [7, 2], [4, 2], [2, 2], [4, 4], [0, 8]]
-  ];
-  // keherwa: Dha Ge Na Ti | Na Ka Dhi Na (one bol per matra = every 2 steps)
-  const KEHERWA = ['dha', 'ge', 'na', 'ti', 'na', 'ka', 'dhi', 'na'];
-  let ctx = null, master, music, sfx, dry, verb, echo, noiseBuf, timer = null, nextT = 0, step = 0, on = false;
-  let motion = 0, phraseUntil = 0, lastPitch = SA;
-  const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
+  // What you hear on a calm train ride: wheels going ta-dak over rail joints, a low steady rumble,
+  // soft wind past the window, birds now and then, and a distant horn once in a while.
+  let ctx = null, master, amb, sfx, verb, brown, pink, timer = null, on = false;
+  let nextJoint = 0, nextBird = 0, nextHorn = 0, pace = 1, motion = 0;
+  function makeNoise(seconds, kind){
+    const len = Math.floor(ctx.sampleRate * seconds), b = ctx.createBuffer(1, len, ctx.sampleRate), d = b.getChannelData(0);
+    let last = 0, b0 = 0, b1 = 0, b2 = 0;
+    for (let i = 0; i < len; i++){
+      const w = Math.random() * 2 - 1;
+      if (kind === 'brown'){ last = (last + .02 * w) / 1.02; d[i] = last * 3.5; }
+      else { b0 = .99765 * b0 + w * .099046; b1 = .963 * b1 + w * .2965164; b2 = .57 * b2 + w * 1.0526913; d[i] = (b0 + b1 + b2 + w * .1848) * .11; }
+    }
+    return b;
+  }
   function init(){
     if (ctx) return true;
     try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (_) { return false; }
-    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 3; comp.connect(ctx.destination);
+    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -20; comp.ratio.value = 3; comp.connect(ctx.destination);
     master = ctx.createGain(); master.gain.value = .9; master.connect(comp);
-    music = ctx.createGain(); music.gain.value = 0; music.connect(master);
+    amb = ctx.createGain(); amb.gain.value = 0; amb.connect(master);
     sfx = ctx.createGain(); sfx.connect(master);
-    verb = ctx.createConvolver(); const len = Math.floor(ctx.sampleRate * 3.4), ir = ctx.createBuffer(2, len, ctx.sampleRate);
-    for (let k = 0; k < 2; k++){ const d = ir.getChannelData(k); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.8); }
-    verb.buffer = ir; const wet = ctx.createGain(); wet.gain.value = .45; verb.connect(wet); wet.connect(music);
-    dry = ctx.createGain(); dry.connect(music); dry.connect(verb);
-    echo = ctx.createDelay(2); echo.delayTime.value = STEP * 3;
-    const fb = ctx.createGain(); fb.gain.value = .25; const eLp = ctx.createBiquadFilter(); eLp.type = 'lowpass'; eLp.frequency.value = 2000; const eWet = ctx.createGain(); eWet.gain.value = .22;
-    echo.connect(eLp); eLp.connect(fb); fb.connect(echo); eLp.connect(eWet); eWet.connect(music); eWet.connect(verb);
-    noiseBuf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * .5), ctx.sampleRate); const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+    verb = ctx.createConvolver(); const len = Math.floor(ctx.sampleRate * 2.4), ir = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let k = 0; k < 2; k++){ const d = ir.getChannelData(k); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); }
+    verb.buffer = ir; const wet = ctx.createGain(); wet.gain.value = .5; verb.connect(wet); wet.connect(amb);
+    brown = makeNoise(8, 'brown'); pink = makeNoise(8, 'pink');
+    // low carriage rumble, gently swelling
+    const rum = ctx.createBufferSource(); rum.buffer = brown; rum.loop = true;
+    const rLp = ctx.createBiquadFilter(); rLp.type = 'lowpass'; rLp.frequency.value = 180;
+    const rG = ctx.createGain(); rG.gain.value = .085;
+    const rL = ctx.createOscillator(); rL.frequency.value = .11; const rLd = ctx.createGain(); rLd.gain.value = .025; rL.connect(rLd); rLd.connect(rG.gain);
+    rum.connect(rLp); rLp.connect(rG); rG.connect(amb); rum.start(); rL.start();
+    // soft wind past an open window
+    const wind = ctx.createBufferSource(); wind.buffer = pink; wind.loop = true; wind.loopStart = 1.3;
+    const wBp = ctx.createBiquadFilter(); wBp.type = 'bandpass'; wBp.frequency.value = 520; wBp.Q.value = .6;
+    const wLp = ctx.createBiquadFilter(); wLp.type = 'lowpass'; wLp.frequency.value = 1400;
+    const wG = ctx.createGain(); wG.gain.value = .045;
+    const wL = ctx.createOscillator(); wL.frequency.value = .07; const wLd = ctx.createGain(); wLd.gain.value = .022; wL.connect(wLd); wLd.connect(wG.gain);
+    const wF = ctx.createOscillator(); wF.frequency.value = .045; const wFd = ctx.createGain(); wFd.gain.value = 160; wF.connect(wFd); wFd.connect(wBp.frequency);
+    wind.connect(wBp); wBp.connect(wLp); wLp.connect(wG); wG.connect(amb); wind.start(); wL.start(); wF.start();
     document.addEventListener('visibilitychange', () => { if (document.hidden) ctx.suspend(); else if (on) ctx.resume(); });
     return true;
   }
-  function noise(t, dur, type, freq, q, gain, dest){
-    const src = ctx.createBufferSource(); src.buffer = noiseBuf; const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
-    const g = ctx.createGain(); g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
-    src.connect(f); f.connect(g); g.connect(dest); src.start(t); src.stop(t + dur + .02);
+  /* one wheel passing a rail joint: soft thump + a short metallic tick */
+  function hit(t, lvl){
+    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(95, t); o.frequency.exponentialRampToValueAtTime(55, t + .09);
+    const g = ctx.createGain(); g.gain.setValueAtTime(lvl, t); g.gain.exponentialRampToValueAtTime(.0004, t + .16);
+    o.connect(g); g.connect(amb); o.start(t); o.stop(t + .18);
+    const n = ctx.createBufferSource(); n.buffer = pink; const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1500 + Math.random() * 300; f.Q.value = 1.4;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2600;
+    const ng = ctx.createGain(); ng.gain.setValueAtTime(lvl * .9, t); ng.gain.exponentialRampToValueAtTime(.0003, t + .07);
+    n.connect(f); f.connect(lp); lp.connect(ng); ng.connect(amb); ng.connect(verb); n.start(t, Math.random() * 6); n.stop(t + .09);
   }
-  /* tanpura: buzzy plucked drone (Pa, Sa', Sa', Sa) */
-  function tanpura(m, t, lvl){
-    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(lvl, t + .02); g.gain.exponentialRampToValueAtTime(.0003, t + 5.5);
-    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(2600, t); lp.frequency.exponentialRampToValueAtTime(700, t + 4);
-    const buzz = ctx.createBiquadFilter(); buzz.type = 'peaking'; buzz.frequency.value = mtof(m) * 6; buzz.Q.value = 4; buzz.gain.value = 9;
-    for (const det of [-4, 4]){ const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = mtof(m); o.detune.value = det; o.connect(buzz); o.start(t); o.stop(t + 5.6); }
-    buzz.connect(lp); lp.connect(g); g.connect(dry);
+  /* a coach's bogies crossing a joint: "ta-dak ... ta-dak" */
+  function joint(t, p){
+    const gap = .13 / p, lv = .1 + Math.random() * .02;
+    hit(t, lv); hit(t + gap, lv * .85);
+    hit(t + .62 / p, lv * .7); hit(t + .62 / p + gap, lv * .6);
   }
-  /* bansuri: breathy sine with delayed vibrato and a small glide (meend) from the previous note */
-  function flute(m, t, dur, v){
-    const f0 = mtof(m), from = mtof(lastPitch); lastPitch = m;
-    const o = ctx.createOscillator(); o.type = 'sine';
-    o.frequency.setValueAtTime(Math.abs(from - f0) < f0 * .3 ? from : f0, t); o.frequency.exponentialRampToValueAtTime(f0, t + .09);
-    const o2 = ctx.createOscillator(); o2.type = 'triangle'; o2.frequency.value = f0 * 2;
-    const vib = ctx.createOscillator(); vib.frequency.value = 5.2; const vd = ctx.createGain(); vd.gain.setValueAtTime(0, t); vd.gain.linearRampToValueAtTime(f0 * .006, t + Math.min(.5, dur * .6)); vib.connect(vd); vd.connect(o.frequency);
-    const g = ctx.createGain(), end = t + dur;
-    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .07); g.gain.setValueAtTime(v, end - .06); g.gain.linearRampToValueAtTime(v * .55, end); g.gain.linearRampToValueAtTime(0, end + .22);
-    const h = ctx.createGain(); h.gain.value = .06; o2.connect(h); h.connect(g); o.connect(g);
-    g.connect(dry); g.connect(echo);
-    for (const x of [o, o2, vib]){ x.start(t); x.stop(end + .25); }
-    noise(t, .18, 'bandpass', f0 * 2.2, 2.5, v * .35, dry);                  // breath at the attack
-  }
-  /* tabla strokes */
-  function bayan(t, lvl){ const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(68, t + .28); const g = ctx.createGain(); g.gain.setValueAtTime(lvl, t); g.gain.exponentialRampToValueAtTime(.0005, t + .5); o.connect(g); g.connect(dry); o.start(t); o.stop(t + .55); }
-  function dayan(t, lvl, ring){
-    const f = mtof(SA); for (const [mult, a] of [[1, 1], [2, .45], [3, .2]]){ const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f * mult; const g = ctx.createGain(); g.gain.setValueAtTime(lvl * a, t); g.gain.exponentialRampToValueAtTime(.0003, t + ring / mult); o.connect(g); g.connect(dry); o.start(t); o.stop(t + ring + .05); }
-    noise(t, .025, 'highpass', 2500, .7, lvl * .5, dry);
-  }
-  function stroke(bol, t, k){
-    const L = .11 * k;
-    if (bol === 'dha'){ bayan(t, L * 1.1); dayan(t, L * .55, .55); }
-    else if (bol === 'dhi'){ bayan(t, L); dayan(t, L * .45, .4); }
-    else if (bol === 'ge') bayan(t, L * .9);
-    else if (bol === 'na') dayan(t, L * .5, .5);
-    else if (bol === 'ti') dayan(t, L * .32, .09);
-    else if (bol === 'ka') noise(t, .05, 'lowpass', 900, .7, L * .35, dry);
-  }
-  function schedule(i, t){
-    const pos = i % CYCLE;
-    // tanpura cycle every half keherwa (8 steps = 3s): Pa, Sa', Sa', Sa
-    if (pos % 2 === 0){ const tp = [SA - 17, SA - 12, SA - 12, SA - 24][(pos / 2) % 4]; tanpura(tp, t, .026); }
-    // tabla follows the train
-    if (motion > .03){
-      if (pos % 2 === 0) stroke(KEHERWA[pos / 2], t, motion);
-      else if (Math.random() < .25 * motion) stroke('ti', t, motion * .7);
-    }
-    // flute phrases with breathing room between them
-    if (pos % 4 === 0 && i >= phraseUntil && Math.random() < .55){
-      const ph = PHRASES[Math.floor(Math.random() * PHRASES.length)];
-      let at = t, steps = 0;
-      for (const [off, len] of ph){ flute(SA + off, at, len * STEP * .96, .072 + Math.random() * .014); at += len * STEP; steps += len; }
-      phraseUntil = i + steps + 8 + Math.floor(Math.random() * 3) * 4;
+  function bird(t){
+    const n = 2 + Math.floor(Math.random() * 3), base = 2800 + Math.random() * 1600;
+    for (let k = 0; k < n; k++){
+      const tt = t + k * (.11 + Math.random() * .06), o = ctx.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(base, tt); o.frequency.exponentialRampToValueAtTime(base * (1.25 + Math.random() * .3), tt + .05); o.frequency.exponentialRampToValueAtTime(base * .9, tt + .09);
+      const g = ctx.createGain(); g.gain.setValueAtTime(0, tt); g.gain.linearRampToValueAtTime(.012, tt + .01); g.gain.exponentialRampToValueAtTime(.0002, tt + .1);
+      o.connect(g); g.connect(amb); g.connect(verb); o.start(tt); o.stop(tt + .12);
     }
   }
-  function tick(){ if (!on) return; const now = ctx.currentTime; if (nextT < now) nextT = now + .08; while (nextT < now + .9){ schedule(step, nextT); nextT += STEP; step++; } }
-  function ramp(v, secs){ const g = music.gain, n = ctx.currentTime; g.cancelScheduledValues(n); g.setValueAtTime(g.value, n); g.linearRampToValueAtTime(v, n + secs); }
-  function start(){ if (!init()) return; on = true; ctx.resume(); step = 0; phraseUntil = 4; nextT = ctx.currentTime + .15; ramp(.95, 3); clearInterval(timer); timer = setInterval(tick, 120); tick(); }
+  /* far-off two-tone loco horn, softened by distance */
+  function farHorn(t){
+    const g = ctx.createGain(), lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 700;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.022, t + .25); g.gain.setValueAtTime(.022, t + 1.1); g.gain.linearRampToValueAtTime(0, t + 1.7);
+    for (const f of [277, 330]){ const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.connect(lp); o.start(t); o.stop(t + 1.75); }
+    lp.connect(g); g.connect(verb); g.connect(amb);
+  }
+  function tick(){
+    if (!on) return; const now = ctx.currentTime;
+    pace += ((.95 + motion * .5) - pace) * .1;               // wheels speed up a little when you drive the model train
+    if (nextJoint < now) nextJoint = now + .1;
+    while (nextJoint < now + .8){ joint(nextJoint, pace); nextJoint += (1.25 + (Math.random() - .5) * .05) / pace; }
+    if (now > nextBird){ if (nextBird) bird(now + .1); nextBird = now + 9 + Math.random() * 16; }
+    if (now > nextHorn){ if (nextHorn) farHorn(now + .1); nextHorn = now + 55 + Math.random() * 50; }
+  }
+  function ramp(v, secs){ const g = amb.gain, n = ctx.currentTime; g.cancelScheduledValues(n); g.setValueAtTime(g.value, n); g.linearRampToValueAtTime(v, n + secs); }
+  function start(){ if (!init()) return; on = true; ctx.resume(); nextJoint = ctx.currentTime + .4; ramp(1.2, 3); clearInterval(timer); timer = setInterval(tick, 100); tick(); }
   function stop(){ if (!ctx) return; on = false; clearInterval(timer); ramp(0, .8); }
   function setMotion(v, dt){ motion += (v - motion) * Math.min(1, dt * 1.2); }
+  /* station bell: soft "ding-dong" on arrival */
   function chime(){
     if (!on) return; const t = ctx.currentTime + .05;
-    [[SA + 12, 0], [SA + 7, .32], [SA + 4, .64], [SA, .96]].forEach(([m, d]) => {
-      for (const [mult, a, dec] of [[1, 1, 2.2], [2.76, .3, .9], [5.4, .12, .4]]){ const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = mtof(m) * mult; const g = ctx.createGain(); g.gain.setValueAtTime(0, t + d); g.gain.linearRampToValueAtTime(.05 * a, t + d + .01); g.gain.exponentialRampToValueAtTime(.0002, t + d + dec); o.connect(g); g.connect(dry); o.start(t + d); o.stop(t + d + dec + .05); }
+    [[659.3, 0], [523.3, .45]].forEach(([f, d]) => {
+      for (const [mult, a, dec] of [[1, 1, 1.8], [2.76, .25, .7], [5.4, .08, .3]]){ const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f * mult; const g = ctx.createGain(); g.gain.setValueAtTime(0, t + d); g.gain.linearRampToValueAtTime(.04 * a, t + d + .01); g.gain.exponentialRampToValueAtTime(.0002, t + d + dec); o.connect(g); g.connect(amb); g.connect(verb); o.start(t + d); o.stop(t + d + dec + .05); }
     });
   }
   function horn(){
@@ -882,16 +874,13 @@ const Sound = (() => {
     g.connect(lp); lp.connect(sfx);
     for (const f of [311, 370, 466]){ const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.connect(g); o.start(now); o.stop(now + .92); }
   }
-  function clack(level){
-    if (!on) return; const t = ctx.currentTime;
-    for (const dt of [0, .085]) noise(t + dt, .05, 'bandpass', 1100, 1.2, .04 * level, sfx);
-  }
+  function clack(){}
   return { start, stop, horn, clack, chime, setMotion, get on(){ return on; } };
 })();
 let musicWanted = true; try { musicWanted = localStorage.getItem('musicOff') !== '1'; } catch (_) {}
 function setMusic(v, save){
   if (v) Sound.start(); else Sound.stop();
-  $('music').setAttribute('aria-pressed', String(v)); $('music').title = v ? 'Music on' : 'Music off';
+  $('music').setAttribute('aria-pressed', String(v)); $('music').title = v ? 'Train sounds on' : 'Train sounds off';
   if (save){ try { localStorage.setItem('musicOff', v ? '0' : '1'); } catch (_) {} }
 }
 $('music').addEventListener('click', () => setMusic(!Sound.on, true));
@@ -932,7 +921,7 @@ renderer.domElement.addEventListener('pointermove', (e) => {
 /* ---------------- loop ---------------- */
 const OV = [1.0, 3.5, 7.3];
 function resize(){
-  const w = innerWidth, h = innerHeight; renderer.setSize(w, h); composer.setSize(w, h); if (gtao) gtao.setSize(w, h);
+  const w = innerWidth, h = innerHeight; if (w < 2 || h < 2) return; renderer.setSize(w, h); composer.setSize(w, h); if (gtao) gtao.setSize(w, h);
   camera.aspect = w / h; camera.fov = w < 760 ? 48 : 32; camera.updateProjectionMatrix();
   const k = clamp(1.25 / camera.aspect, 1, 2.4) * (w < 760 ? .76 : 1); VIEWS.overview.pos = [OV[0] * k, .1 + (OV[1] - .1) * k, OV[2] * k]; controls.maxDistance = 11 * Math.max(1, k);
   tiltH.uniforms.h.value = (isMobile ? 1.2 : 2.2) / w; tiltV.uniforms.v.value = (isMobile ? 1.2 : 2.2) / h;
@@ -942,7 +931,7 @@ tiltH.uniforms.r.value = tiltV.uniforms.r.value = .46;
 camera.position.set(...VIEWS.overview.pos); controls.target.set(...VIEWS.overview.tgt); controls.update();
 
 const ACC = .3, BRK = 1.25, FRIC = .06, MAX = .9, REV = .25;
-const bg = new THREE.Color(), dayBg = new THREE.Color('#15110d'), nightBg = new THREE.Color('#060508');
+const bg = new THREE.Color(), dayBg = new THREE.Color('#15110d'), nightBg = new THREE.Color('#0b0a10');
 let clackDist = 0;
 function signedDelta(a, b){ let d = a - b; d = ((d + L / 2) % L + L) % L - L / 2; return d; }
 function physics(dt){
@@ -1011,7 +1000,7 @@ function animate(t, dt){
   const blink = Math.sin(t * .004) > .3 ? 1 : .1; for (const b of blinkers) b.emissiveIntensity = blink * (1.2 + 2.5 * night);
   night += (nightTarget - night) * (1 - Math.pow(.15, dt));
   bg.copy(dayBg).lerp(nightBg, night); scene.background = bg; scene.fog.color.copy(bg);
-  key.intensity = 120 - 108 * night; hemi.intensity = .5 - .42 * night; rim.intensity = .7 - .45 * night; scene.environmentIntensity = .42 - .34 * night;
+  key.intensity = 120 - 100 * night; hemi.intensity = .5 - .3 * night; rim.intensity = .7 - .35 * night; scene.environmentIntensity = .42 - .26 * night;
   headlight.intensity = night * 5;
   for (const [m, a, b] of glowMats) m.emissiveIntensity = a + (b - a) * night;
   bloom.strength = .22 + night * .45; bloom.threshold = .92 - night * .25;
@@ -1020,7 +1009,8 @@ let last = performance.now(), started = false;
 function loop(now){
   const dt = Math.min(.05, (now - last) / 1000); last = now;
   physics(dt); placeTrain(dt); animate(now, dt); cameraUpdate(dt);
-  composer.render();
+  if (!Number.isFinite(camera.position.x + camera.position.y + camera.position.z + controls.target.x + controls.target.y + controls.target.z)){ tween = null; view = 'overview'; camera.position.set(...VIEWS.overview.pos); controls.target.set(...VIEWS.overview.tgt); }
+  if (!glLost && innerWidth > 1 && innerHeight > 1) composer.render();
   if (!started){ started = true; setTimeout(() => { $('loader').classList.add('done'); toast('Hold <b>GO</b> to start the train, or click a town.', 4200); }, 250); }
   requestAnimationFrame(loop);
 }
