@@ -66,7 +66,6 @@ button{font:inherit;color:inherit;cursor:pointer}
 .card-head h2{margin:4px 0 0;font-family:var(--display);font-weight:800;font-size:29px;line-height:1.04;letter-spacing:-.01em;text-wrap:balance}
 .card-head .x{margin-left:auto;flex-shrink:0;width:40px;height:40px;border-radius:50%;border:1px solid #d6cab6;background:#fff;font-size:18px;line-height:1}
 .board{margin:0 18px;padding:6px 12px;border:3px solid #1c1b20;border-radius:6px;background:var(--signal);color:#1c1b20;text-align:center;display:flex;flex-direction:column}
-.board .hi{font-family:var(--body);font-weight:700;font-size:17px;line-height:1.25}
 .board .en{font-family:var(--display);font-weight:800;font-size:27px;letter-spacing:.08em;line-height:1.05}
 .card-body{padding:14px 18px 22px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;font-size:16px;line-height:1.55}
 .card-body p{margin:0;color:#3b342d}
@@ -76,6 +75,15 @@ button{font:inherit;color:inherit;cursor:pointer}
 .facts div{background:#fff;border:1px solid #e2d7c5;border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;min-width:0}
 .facts span{font-family:var(--mono);font-size:11px;color:#6c6156}
 .facts strong{font-size:15px;line-height:1.3;overflow-wrap:anywhere}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.stats div{background:var(--coach);color:#fff;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:2px;border-bottom:4px solid var(--signal)}
+.stats span{font-family:var(--mono);font-size:11px;letter-spacing:.06em;opacity:.85}
+.stats strong{font-family:var(--display);font-weight:800;font-size:34px;line-height:1.05;font-variant-numeric:tabular-nums}
+.stats small{font-size:13px;opacity:.85}
+.lede{font-size:17px;color:#221d18!important}
+.tryit{align-self:flex-start;background:#0f766e}
+.icon-btn{width:40px;padding:0;justify-content:center}
+#music .slash{display:block}#music[aria-pressed="true"] .slash{display:none}
 .sub{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:#6c6156;margin-top:4px}
 .tl{display:flex;flex-direction:column;margin-left:7px;border-left:2px solid #d6cab6}
 .tl div{position:relative;padding:0 0 14px 18px;display:flex;flex-direction:column}
@@ -102,13 +110,14 @@ button{font:inherit;color:inherit;cursor:pointer}
 @keyframes load{0%{transform:translateX(-100%)}100%{transform:translateX(260%)}}
 .err{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;background:var(--ink)}
 @media (max-width:760px){
-  .brand{left:16px}.nav{right:12px;top:calc(68px + env(safe-area-inset-top,0px));justify-content:flex-start;left:12px;max-width:none}
+  .brand{left:16px}.nav{right:12px;top:calc(88px + env(safe-area-inset-top,0px));justify-content:flex-start;left:12px;max-width:none}
   .pill{height:36px;padding:0 11px;font-size:13px}
   .ctl{left:12px;right:12px;bottom:calc(64px + env(safe-area-inset-bottom,0px));min-width:0}
   .views{left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));justify-content:center}
   .card{left:0;right:0;width:auto;top:auto;bottom:0;height:min(74%,600px);border-radius:18px 18px 0 0}
   .card.hide{transform:translateY(100%)}
-  .toast{top:calc(160px + env(safe-area-inset-top,0px))}
+  .icon-btn{width:36px}
+  .toast{top:calc(184px + env(safe-area-inset-top,0px))}
 }
 @media (prefers-reduced-motion:reduce){.card,.toast{transition:none}.loader .bar i{animation:none}}
 </style>
@@ -122,8 +131,10 @@ button{font:inherit;color:inherit;cursor:pointer}
   <button class="pill glass" data-go="vdn" type="button"><i class="dot" style="background:var(--vdn)"></i>Vindhyanagar</button>
   <button class="pill glass" data-go="vlr" type="button"><i class="dot" style="background:var(--vlr)"></i>VIT Vellore</button>
   <button class="pill glass" data-go="ggn" type="button"><i class="dot" style="background:var(--ggn)"></i>Gurgaon</button>
+  <button class="pill glass" data-go="projects" type="button"><i class="dot" style="background:#2dd4bf"></i>Projects</button>
   <button class="pill glass" data-go="contact" type="button">Contact</button>
   <button class="pill glass" id="lights" type="button" aria-pressed="false">Lights off</button>
+  <button class="pill glass icon-btn" id="music" type="button" aria-pressed="false" aria-label="Background music" title="Music off"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/><path class="slash" d="M3 3l18 18"/></svg></button>
 </nav>
 <div class="ui ctl glass" role="group" aria-label="Train controller">
   <div class="ctl-top"><span><strong id="kmh">0</strong> km/h</span><span class="next" id="next">Next: Vindhyanagar</span></div>
@@ -153,32 +164,31 @@ const ME = {
   tagline: "Senior Software Engineer · Gurugram",
   title: "Senior Software Engineer", company: "Fareportal (CheapOAir)",
   email: "suhasini.srivastava16work@gmail.com",
-  linkedin: "https://www.linkedin.com/in/suhasini"
+  linkedin: "https://www.linkedin.com/in/suhasini-srivastava-797404205/",
+  offsignal: "https://offsignal.vercel.app"
 };
 const SKILLS = {
-  Languages: ["C#", "C++", "Java", "SQL", "NoSQL", "JavaScript (React)", "HTML/CSS"],
-  Technologies: [".NET Core", ".NET Framework", "ASP.NET Web API", "Spring Boot", "React", "AWS", "MongoDB", "PostgreSQL", "SQL Server", "Elasticsearch", "Linux"],
+  Languages: ["C#", "C++", "Java", "SQL", "NoSQL", "JavaScript", "HTML/CSS"],
+  Technologies: [".NET Core", ".NET Framework", "ASP.NET Web API", "React", "MongoDB", "PostgreSQL", "SQL Server", "Elasticsearch", "Linux"],
   Tools: ["Redis", "RabbitMQ", "Kafka", "Docker", "Kubernetes", "Azure DevOps", "Git", "Kibana", "Cursor", "Copilot", "Claude"],
   Fundamentals: ["DSA", "OOP", "DBMS", "OS", "HLD / LLD", "System Design", "Computer Networks"]
 };
 const trophy = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b07d1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>';
 const chips = (a) => `<div class="chips">${a.map(s => `<span>${s}</span>`).join('')}</div>`;
 const CHAPTERS = {
-  vdn: { en:"VINDHYANAGAR", hi:"विंध्यनगर", kicker:"Station 1 · Class 3–12", title:"Where it all began",
-    html:() => `<p>I grew up in Vindhyanagar, an NTPC township in Singrauli, Madhya Pradesh, built around one of India's largest power stations. Class 3 to 12 happened here, with cooling towers on the horizon and a township that ran on big, always-on systems.</p>
-      <div class="facts"><div><span>YEARS HERE</span><strong>Class 3 to 12</strong></div><div><span>TOWN</span><strong>NTPC township, Singrauli</strong></div></div>
-      <p>Next stop: computer science at VIT Vellore.</p>` },
-  vlr: { en:"VELLORE", hi:"वेल्लोर", kicker:"Station 2 · VIT · Sep 2020 – Jul 2024", title:"Computer science, a long way south",
+  vdn: { en:"VINDHYANAGAR", kicker:"Station 1 · Class 3–12", title:"Where it all began",
+    html:() => `<p class="lede">School at DPS Vindhyanagar, Madhya Pradesh.</p>
+      <div class="stats"><div><span>CLASS X · CBSE</span><strong>93.8%</strong></div><div><span>CLASS XII · CBSE</span><strong>95.6%</strong></div></div>
+      <div class="facts"><div><span>SCHOOL</span><strong>DPS Vindhyanagar</strong></div><div><span>STREAM</span><strong>Science, Maths</strong></div></div>` },
+  vlr: { en:"VELLORE", kicker:"Station 2 · VIT · Sep 2020 – Jul 2024", title:"Computer science, a long way south",
     html:() => `<div class="facts">
         <div><span>DEGREE</span><strong>B.Tech, Computer Science & Engineering</strong></div>
-        <div><span>SPECIALISATION</span><strong>Bioinformatics</strong></div>
+        <div><span>SPECIALISATION</span><strong>Computer Science</strong></div>
         <div><span>CGPA</span><strong>9.10 / 10</strong></div>
         <div><span>WHERE</span><strong>Vellore Institute of Technology</strong></div></div>
       <div class="sub">Competitive coding</div>
-      <p><strong>400+ problems</strong> solved across LeetCode, InterviewBit and GeeksforGeeks.</p>
-      <div class="sub">Final semester</div>
-      <p>Joined Fareportal (CheapOAir) as a Software Engineer Intern in January 2024, then headed north to Gurugram.</p>` },
-  ggn: { en:"GURGAON", hi:"गुड़गाँव", kicker:"Station 3 · Now · Gurugram", title:"Senior Software Engineer at Fareportal (CheapOAir)",
+      <p><strong>400+ problems</strong> solved across LeetCode, InterviewBit and GeeksforGeeks.</p>` },
+  ggn: { en:"GURGAON", kicker:"Station 3 · Now · Gurugram", title:"Senior Software Engineer at Fareportal (CheapOAir)",
     html:() => `<div class="sub">The journey so far</div>
       <div class="tl">
         <div><b>Senior Software Engineer</b><span>Apr 2026 – present</span></div>
@@ -192,11 +202,25 @@ const CHAPTERS = {
         <li>${trophy}<div><b>Quarterly Award for Teamwork & Collaboration</b><small>Q4, FY 2024</small></div></li>
         <li>${trophy}<div><b>Incredibles Monthly Award</b><small>Aug 2024</small></div></li>
       </ul>
-      ${Object.entries(SKILLS).map(([k, v]) => `<div class="sub">${k}</div>${chips(v)}`).join('')}` },
-  contact: { en:"NEXT STATION", hi:"अगला स्टेशन", kicker:"Contact", title:"Could the next stop be your team?",
+      ${Object.entries(SKILLS).map(([k, v]) => `<div class="sub">${k}</div>${chips(v)}`).join('')}
+      <div class="sub">Side project</div>
+      <button class="btn alt" type="button" data-visit="projects">OffSignal: files over light →</button>` },
+  projects: { en:"OFFSIGNAL", kicker:"Side project · the signal cabin", title:"OffSignal: send files with light",
+    html:() => `<p class="lede">Two friends. One file. And no way to move it.</p>
+      <p>One had an iPhone, the other an Android. AirDrop doesn't cross that line, Bluetooth pairing failed three times, and there was no shared WiFi or cell signal.</p>
+      <p>Every "wireless" transfer we use (WiFi, Bluetooth, AirDrop) is just radio, and radio can be missing, disabled, incompatible or banned: planes, secure facilities, dead zones, air-gapped machines. So: if you take radio away, what's left? <strong>Light.</strong></p>
+      <p>OffSignal sends data phone-to-phone through the camera, with no internet, no Bluetooth and no AirDrop. It's a Progressive Web App: install it once while you have signal, then it runs fully offline, with no accounts, no pairing and no server.</p>
+      <div class="stats"><div><span>A PHOTO, BEFORE</span><strong>~18 min</strong></div><div><span>A PHOTO, NOW</span><strong>~1 min</strong></div></div>
+      <div class="sub">The fix: fountain codes</div>
+      <p>A camera misses frames constantly, so waiting for every numbered QR chunk was like collecting a full deck of cards by drawing at random. Now the sender emits an endless stream of coded frames, and the receiver rebuilds the whole file from any "enough" of them, never waiting on one specific frame. On-device image compression, gzip and the phone's native hardware QR scanner do the rest.</p>
+      <div class="sub">Still rough</div>
+      <p>It's a light channel, so it's happiest with small things: a note, a link, a photo. Big files and video are still slow. Ideas welcome.</p>
+      <div class="sub">Built with</div>${chips(["React", "PWA", "Luby Transform fountain code", "gzip", "On-device image compression", "Native QR scanner"])}
+      <a class="btn tryit" href="${ME.offsignal}" target="_blank" rel="noopener">Try OffSignal ↗</a>` },
+  contact: { en:"NEXT STATION", kicker:"Contact", title:"Could the next stop be your team?",
     html:() => `<p>Happy to talk about backend engineering, system design, or anything you're building.</p>
       <div class="row"><span class="email" id="emailTxt">${ME.email}</span><button class="btn" type="button" id="copyEmail">Copy email</button></div>
-      <div class="row"><a class="btn alt" href="${ME.linkedin}" target="_blank" rel="noopener">LinkedIn ↗</a></div>` }
+      <div class="row"><a class="btn alt" href="${ME.linkedin}" target="_blank" rel="noopener">LinkedIn ↗</a><a class="btn alt" href="${ME.offsignal}" target="_blank" rel="noopener">OffSignal ↗</a></div>` }
 };
 
 import * as THREE from 'three';
@@ -526,7 +550,7 @@ const cars = [];
 }
 
 /* ---------------- stations ---------------- */
-function boardDraw(st){ return (c, w, h) => { c.fillStyle = '#1c1b20'; c.fillRect(0, 0, w, h); c.fillStyle = '#f2c230'; c.fillRect(8, 8, w - 16, h - 16); c.fillStyle = '#1c1b20'; c.textAlign = 'center'; c.font = "700 40px Hind, sans-serif"; c.fillText(st.hi, w / 2, 58); let fs = 78; c.font = `800 ${fs}px 'Bricolage Grotesque', sans-serif`; while (c.measureText(st.en).width > w - 44 && fs > 30){ fs -= 2; c.font = `800 ${fs}px 'Bricolage Grotesque', sans-serif`; } c.fillText(st.en, w / 2, 148); }; }
+function boardDraw(st, bg = '#f2c230', fg = '#1c1b20'){ return (c, w, h) => { c.fillStyle = fg; c.fillRect(0, 0, w, h); c.fillStyle = bg; c.fillRect(8, 8, w - 16, h - 16); c.fillStyle = fg; c.textAlign = 'center'; c.textBaseline = 'middle'; let fs = 84; c.font = `800 ${fs}px 'Bricolage Grotesque', sans-serif`; while (c.measureText(st.en).width > w - 48 && fs > 30){ fs -= 2; c.font = `800 ${fs}px 'Bricolage Grotesque', sans-serif`; } c.fillText(st.en, w / 2, h / 2 + 4); }; }
 const boardTexes = [];
 const STATIONS = [];
 for (const [id, tx] of [['vdn', -2.0], ['vlr', .12], ['ggn', 2.0]]){
@@ -545,10 +569,10 @@ for (const [id, tx] of [['vdn', -2.0], ['vlr', .12], ['ggn', 2.0]]){
   mesh(new THREE.BoxGeometry(.24, .12, .11), mat('#efe3c4'), -.3, .06, -.17, g);
   mesh(new THREE.BoxGeometry(.26, .012, .13), roofM, -.3, .126, -.17, g);
   // name board
-  const tex = canvasTex(512, 176, boardDraw(ch)); boardTexes.push(tex);
+  const tex = canvasTex(512, 128, boardDraw(ch)); boardTexes.push(tex);
   for (const x of [.17, .43]) mesh(new THREE.BoxGeometry(.008, .27, .008), mat('#2a2a2e'), x, .19, -.06, g);
   const bm = new THREE.MeshStandardMaterial({ map:tex, roughness:.6, emissive:'#ffffff', emissiveMap:tex, emissiveIntensity:.04 }); glowMats.push([bm, .04, .5]);
-  mesh(new THREE.PlaneGeometry(.3, .103), bm, .3, .28, -.056, g);
+  mesh(new THREE.PlaneGeometry(.3, .075), bm, .3, .28, -.056, g);
   // lamp posts
   for (const x of [-.58, .58, .05]){ mesh(new THREE.BoxGeometry(.006, .24, .006), mat('#2a2a2e'), x, .14, .06, g); const lm = new THREE.MeshStandardMaterial({ color:'#fff3d0', emissive:'#ffd27a', emissiveIntensity:0 }); glowMats.push([lm, 0, 4]); mesh(new THREE.BoxGeometry(.03, .008, .014), lm, x, .26, .06, g); }
   tag(g, id);
@@ -564,6 +588,51 @@ STATIONS.sort((a, b) => b.s - a.s);
   mesh(new THREE.CylinderGeometry(.08, .09, .06, 32), mat('#c8402f', { roughness:.35 }), -.08, .19, 0, g);
   mesh(new THREE.SphereGeometry(.022, 12, 8), new THREE.MeshStandardMaterial({ color:'#5dff9a', emissive:'#5dff9a', emissiveIntensity:2 }), .15, .17, -.08, g);
   tag(g, 'horn'); EXCL.push([3.1, 3.7, 1.55, 2.05]);
+}
+
+/* ---------------- OffSignal signal cabin (side project) ---------------- */
+function makeQR(){
+  const N = 29, px = 4, c = document.createElement('canvas'); c.width = c.height = (N + 4) * px; const x2 = c.getContext('2d');
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.magFilter = THREE.NearestFilter;
+  const finder = (x, y) => { x2.fillStyle = '#111'; x2.fillRect((x + 2) * px, (y + 2) * px, 7 * px, 7 * px); x2.fillStyle = '#fff'; x2.fillRect((x + 3) * px, (y + 3) * px, 5 * px, 5 * px); x2.fillStyle = '#111'; x2.fillRect((x + 4) * px, (y + 4) * px, 3 * px, 3 * px); };
+  function draw(){
+    x2.fillStyle = '#fff'; x2.fillRect(0, 0, c.width, c.height); x2.fillStyle = '#111';
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++){ const inF = (x < 8 && y < 8) || (x > N - 9 && y < 8) || (x < 8 && y > N - 9); if (!inF && Math.random() > .5) x2.fillRect((x + 2) * px, (y + 2) * px, px, px); }
+    finder(0, 0); finder(N - 7, 0); finder(0, N - 7); tex.needsUpdate = true;
+  }
+  draw(); return { tex, draw };
+}
+let qr = null; const sigLamps = [];
+{
+  const g = new THREE.Group(); g.position.set(1.06, 0, 1.12); scene.add(g);
+  const brick = canvasTex(128, 64, (c, w, h) => { c.fillStyle = '#7d3b28'; c.fillRect(0, 0, w, h); for (let y = 0; y < h; y += 8) for (let x = (y / 8 % 2) * 8 - 8; x < w; x += 16){ c.fillStyle = `rgb(${138 + r() * 34 | 0},${60 + r() * 18 | 0},${42 + r() * 12 | 0})`; c.fillRect(x + 1, y + 1, 14, 6); } });
+  brick.wrapS = brick.wrapT = THREE.RepeatWrapping; brick.repeat.set(1.5, 1);
+  mesh(new THREE.BoxGeometry(.3, .14, .2), new THREE.MeshStandardMaterial({ map:brick, roughness:.95 }), 0, .07, 0, g);
+  mesh(new THREE.BoxGeometry(.05, .085, .004), mat('#3a2a20'), -.08, .043, .101, g);
+  mesh(new THREE.BoxGeometry(.1, .012, .04), mat('#9b948a'), -.08, .006, .12, g);
+  const cabWin = new THREE.MeshStandardMaterial({ color:'#22303e', roughness:.12, metalness:.35, emissive:'#ffd9a0', emissiveIntensity:0 }); glowMats.push([cabWin, 0, .7]);
+  mesh(new THREE.BoxGeometry(.32, .11, .22), mat('#efe6d0'), 0, .195, 0, g);
+  mesh(new THREE.BoxGeometry(.322, .055, .222), cabWin, 0, .2, 0, g);
+  for (const x of [-.12, -.04, .04, .12]) mesh(new THREE.BoxGeometry(.006, .056, .224), mat('#efe6d0'), x, .2, 0, g);
+  const roof = mesh(new THREE.ConeGeometry(.25, .08, 4), mat('#7a2a2a', { roughness:.6 }), 0, .29, 0, g); roof.rotation.y = Math.PI / 4; roof.scale.set(1, 1, .72);
+  const nameTex = canvasTex(512, 128, boardDraw({ en:'OFFSIGNAL' }, '#0f766e', '#f4f1e8')); boardTexes.push(nameTex);
+  mesh(new THREE.PlaneGeometry(.2, .05), new THREE.MeshStandardMaterial({ map:nameTex, roughness:.6 }), .04, .115, .101, g);
+  // a screen flashing QR frames, the way OffSignal streams a file
+  mesh(new THREE.BoxGeometry(.008, .24, .008), mat('#2a2a2e', { metalness:.5 }), .25, .12, .02, g);
+  mesh(new THREE.BoxGeometry(.17, .17, .012), mat('#18181b', { roughness:.5 }), .25, .31, .02, g);
+  qr = makeQR();
+  const qm = new THREE.MeshStandardMaterial({ map:qr.tex, emissive:'#ffffff', emissiveMap:qr.tex, emissiveIntensity:.18, roughness:.6 }); glowMats.push([qm, .18, .55]);
+  mesh(new THREE.PlaneGeometry(.145, .145), qm, .25, .31, .0265, g);
+  // colour-light signal
+  mesh(new THREE.CylinderGeometry(.005, .006, .44, 8), mat('#3d3f45', { metalness:.5 }), -.25, .22, .04, g);
+  mesh(new THREE.BoxGeometry(.036, .092, .016), mat('#141416', { roughness:.5 }), -.25, .44, .04, g);
+  [['#ff3b2f', .026], ['#ffb020', 0], ['#38e07b', -.026]].forEach(([col, dy]) => {
+    const m = new THREE.MeshStandardMaterial({ color:col, emissive:col, emissiveIntensity:.05 }); sigLamps.push(m);
+    mesh(new THREE.SphereGeometry(.0085, 12, 8), m, -.25, .44 + dy, .049, g);
+    mesh(new THREE.BoxGeometry(.022, .003, .012), mat('#141416'), -.25, .452 + dy, .054, g);
+  });
+  tag(g, 'projects');
+  EXCL.push([.76, 1.38, .9, 1.36]);
 }
 
 /* ---------------- vegetation (instanced) ---------------- */
@@ -650,6 +719,7 @@ const VIEWS = {
   vdn: { pos:[-.5, 1.85, 2.55], tgt:[-1.7, .28, -.25] },
   vlr: { pos:[1.15, 1.55, 2.25], tgt:[.22, .18, -.45] },
   ggn: { pos:[3.45, 1.85, 2.35], tgt:[2.05, .45, -.25] },
+  projects: { pos:[1.95, 1.05, 2.75], tgt:[1.42, .2, 1.05] },
   contact: { pos:[2.55, .95, 3.05], tgt:[3.4, .1, 1.8] }
 };
 
@@ -659,10 +729,11 @@ function toast(html, ms = 3200){ const t = $('toast'); t.innerHTML = html; t.cla
 function openCard(id){
   const ch = CHAPTERS[id], c = $('card');
   c.innerHTML = `<div class="card-head"><div><div class="k">${ch.kicker}</div><h2>${ch.title}</h2></div><button class="x" type="button" id="closeCard" aria-label="Close">✕</button></div>
-    <div class="board"><span class="hi">${ch.hi}</span><span class="en">${ch.en}</span></div>
+    <div class="board"><span class="en">${ch.en}</span></div>
     <div class="card-body">${ch.html()}</div>`;
   c.classList.remove('hide'); c.querySelector('.card-body').scrollTop = 0;
   $('closeCard').addEventListener('click', closeCard);
+  c.querySelectorAll('[data-visit]').forEach(b => b.addEventListener('click', () => visit(b.dataset.visit)));
   const cb = $('copyEmail');
   if (cb) cb.addEventListener('click', () => navigator.clipboard.writeText(ME.email).then(() => cb.textContent = 'Copied').catch(() => { const rg = document.createRange(); rg.selectNodeContents($('emailTxt')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(rg); cb.textContent = 'Selected: press Ctrl+C'; }));
   document.querySelectorAll('[data-go]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.go === id)));
@@ -695,23 +766,96 @@ addEventListener('keydown', (e) => {
 });
 addEventListener('keyup', (e) => { const k = e.key.toLowerCase(); if (e.key === 'ArrowRight' || k === 'd') setGo(false); if (e.key === 'ArrowLeft' || k === 'a') setBrake(false); });
 addEventListener('blur', () => { setGo(false); setBrake(false); });
-let audio;
-function horn(){
-  try {
-    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
-    const now = audio.currentTime, g = audio.createGain(), lp = audio.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1400;
-    g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(.12, now + .05); g.gain.setValueAtTime(.12, now + .7); g.gain.linearRampToValueAtTime(0, now + .9);
-    g.connect(lp); lp.connect(audio.destination);
-    for (const f of [311, 370, 466]){ const o = audio.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.connect(g); o.start(now); o.stop(now + .92); }
-  } catch (_) {}
-  toast('<b>Poooo!</b>', 1200);
+/* ---------------- sound: soft generative music, horn, rail clicks ---------------- */
+const Sound = (() => {
+  const BPM = 70, EIGHTH = 60 / BPM / 2;
+  const CHORDS = [ { pad:[50, 57, 61, 66], bass:38 }, { pad:[47, 54, 57, 62], bass:35 }, { pad:[55, 59, 62, 66], bass:43 }, { pad:[52, 57, 61, 66], bass:45 } ];  // Dmaj7, Bm7, Gmaj7, A6
+  const MEL = [[66, 69, 73, 74, 76, 78, 81], [66, 69, 71, 74, 76, 78], [67, 71, 74, 76, 78, 79], [69, 71, 73, 76, 78, 81]];
+  let ctx = null, master, music, sfx, dry, verb, echo, noiseBuf, timer = null, nextT = 0, step = 0, on = false, lastNote = 74;
+  const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
+  function init(){
+    if (ctx) return true;
+    try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (_) { return false; }
+    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 3; comp.connect(ctx.destination);
+    master = ctx.createGain(); master.gain.value = .9; master.connect(comp);
+    music = ctx.createGain(); music.gain.value = 0; music.connect(master);
+    sfx = ctx.createGain(); sfx.connect(master);
+    verb = ctx.createConvolver(); const len = Math.floor(ctx.sampleRate * 3.2), ir = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let k = 0; k < 2; k++){ const d = ir.getChannelData(k); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
+    verb.buffer = ir; const wet = ctx.createGain(); wet.gain.value = .42; verb.connect(wet); wet.connect(music);
+    dry = ctx.createGain(); dry.connect(music); dry.connect(verb);
+    echo = ctx.createDelay(2); echo.delayTime.value = EIGHTH * 3;
+    const fb = ctx.createGain(); fb.gain.value = .3; const eLp = ctx.createBiquadFilter(); eLp.type = 'lowpass'; eLp.frequency.value = 2400; const eWet = ctx.createGain(); eWet.gain.value = .35;
+    echo.connect(eLp); eLp.connect(fb); fb.connect(echo); eLp.connect(eWet); eWet.connect(music); eWet.connect(verb);
+    noiseBuf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * .06), ctx.sampleRate); const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = (Math.random() * 2 - 1) * (1 - i / nd.length);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) ctx.suspend(); else if (on) ctx.resume(); });
+    return true;
+  }
+  function pad(ch, t, dur){
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = .4; f.frequency.setValueAtTime(650, t); f.frequency.linearRampToValueAtTime(1300, t + dur * .55); f.frequency.linearRampToValueAtTime(800, t + dur);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(1, t + 1.6); g.gain.setValueAtTime(1, t + dur - .4); g.gain.linearRampToValueAtTime(0, t + dur + 2.2);
+    f.connect(g); g.connect(dry);
+    for (const m of ch.pad) for (const [type, det, lvl] of [['sine', -5, .03], ['triangle', 6, .016]]){ const o = ctx.createOscillator(); o.type = type; o.frequency.value = mtof(m); o.detune.value = det; const og = ctx.createGain(); og.gain.value = lvl; o.connect(og); og.connect(f); o.start(t); o.stop(t + dur + 2.4); }
+  }
+  function bass(m, t){
+    const o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.value = mtof(m + 12);
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 520;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.05, t + .04); g.gain.exponentialRampToValueAtTime(.0008, t + EIGHTH * 3.6);
+    o.connect(lp); lp.connect(g); g.connect(dry); o.start(t); o.stop(t + EIGHTH * 4);
+  }
+  function pluck(m, t, v){
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(3200, t); lp.frequency.exponentialRampToValueAtTime(900, t + .8);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .006); g.gain.exponentialRampToValueAtTime(.0005, t + 1.6);
+    for (const [type, mult, lvl] of [['triangle', 1, 1], ['sine', 2, .25]]){ const o = ctx.createOscillator(); o.type = type; o.frequency.value = mtof(m) * mult; const og = ctx.createGain(); og.gain.value = lvl; o.connect(og); og.connect(lp); o.start(t); o.stop(t + 1.7); }
+    lp.connect(g); g.connect(dry); g.connect(echo);
+  }
+  function schedule(i, t){
+    const chIdx = Math.floor(i / 16) % 4, ch = CHORDS[chIdx];
+    if (i % 16 === 0) pad(ch, t, EIGHTH * 16);
+    if (i % 4 === 0) bass(ch.bass, t);
+    const busy = Math.floor(i / 64) % 2 ? 1 : .6, p = (i % 2 === 0 ? .34 : .15) * busy;
+    if (Math.random() < p){
+      const target = lastNote + (Math.random() < .5 ? -1 : 1) * (1 + Math.floor(Math.random() * 4));
+      let best = MEL[chIdx][0]; for (const n of MEL[chIdx]) if (Math.abs(n - target) < Math.abs(best - target)) best = n;
+      lastNote = best; pluck(best, t + (Math.random() - .5) * .012, .04 + Math.random() * .03);
+    }
+  }
+  function tick(){ if (!on) return; const now = ctx.currentTime; if (nextT < now) nextT = now + .08; while (nextT < now + .9){ schedule(step, nextT); nextT += EIGHTH; step++; } }
+  function ramp(v, secs){ const g = music.gain, n = ctx.currentTime; g.cancelScheduledValues(n); g.setValueAtTime(g.value, n); g.linearRampToValueAtTime(v, n + secs); }
+  function start(){ if (!init()) return; on = true; ctx.resume(); step = 0; nextT = ctx.currentTime + .15; ramp(.5, 3); clearInterval(timer); timer = setInterval(tick, 120); tick(); }
+  function stop(){ if (!ctx) return; on = false; clearInterval(timer); ramp(0, .8); }
+  function horn(){
+    if (!init()) return; ctx.resume();
+    const now = ctx.currentTime, g = ctx.createGain(), lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1400;
+    g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(.1, now + .05); g.gain.setValueAtTime(.1, now + .7); g.gain.linearRampToValueAtTime(0, now + .9);
+    g.connect(lp); lp.connect(sfx);
+    for (const f of [311, 370, 466]){ const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.connect(g); o.start(now); o.stop(now + .92); }
+  }
+  function clack(level){
+    if (!on) return; const t = ctx.currentTime;
+    for (const dt of [0, .085]){ const src = ctx.createBufferSource(); src.buffer = noiseBuf; const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1100; bp.Q.value = 1.2; const g = ctx.createGain(); g.gain.value = .045 * level; src.connect(bp); bp.connect(g); g.connect(sfx); src.start(t + dt); }
+  }
+  return { start, stop, horn, clack, get on(){ return on; } };
+})();
+let musicWanted = true; try { musicWanted = localStorage.getItem('musicOff') !== '1'; } catch (_) {}
+function setMusic(v, save){
+  if (v) Sound.start(); else Sound.stop();
+  $('music').setAttribute('aria-pressed', String(v)); $('music').title = v ? 'Music on' : 'Music off';
+  if (save){ try { localStorage.setItem('musicOff', v ? '0' : '1'); } catch (_) {} }
 }
+$('music').addEventListener('click', () => setMusic(!Sound.on, true));
+function firstGesture(e){
+  removeEventListener('pointerdown', firstGesture, true); removeEventListener('keydown', firstGesture, true);
+  if (musicWanted && !Sound.on && !(e.target.closest && e.target.closest('#music'))) setMusic(true);
+}
+addEventListener('pointerdown', firstGesture, true); addEventListener('keydown', firstGesture, true);
+function horn(){ Sound.horn(); toast('<b>Poooo!</b>', 1200); }
 $('horn').addEventListener('click', horn);
 
 /* picking */
 const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
 let downAt = null;
-const LABEL = { vdn:'Vindhyanagar · where it all began', vlr:'VIT Vellore · B.Tech CSE', ggn:'Gurgaon · Fareportal (CheapOAir)', train:'The train · hold GO to drive', horn:'Controller · sound the horn' };
+const LABEL = { projects:'OffSignal · send files with light', vdn:'Vindhyanagar · DPS, Class 3–12', vlr:'VIT Vellore · B.Tech CSE', ggn:'Gurgaon · Fareportal (CheapOAir)', train:'The train · hold GO to drive', horn:'Controller · sound the horn' };
 const pickables = []; scene.traverse(o => { if (o.isMesh && o.userData.pick) pickables.push(o); });
 function pick(e){
   const rc = renderer.domElement.getBoundingClientRect();
@@ -739,7 +883,7 @@ const OV = [1.0, 3.5, 7.3];
 function resize(){
   const w = innerWidth, h = innerHeight; renderer.setSize(w, h); composer.setSize(w, h); if (gtao) gtao.setSize(w, h);
   camera.aspect = w / h; camera.fov = w < 760 ? 48 : 32; camera.updateProjectionMatrix();
-  const k = clamp(1.25 / camera.aspect, 1, 2.4) * (w < 760 ? .64 : 1); VIEWS.overview.pos = [OV[0] * k, .1 + (OV[1] - .1) * k, OV[2] * k]; controls.maxDistance = 11 * Math.max(1, k);
+  const k = clamp(1.25 / camera.aspect, 1, 2.4) * (w < 760 ? .76 : 1); VIEWS.overview.pos = [OV[0] * k, .1 + (OV[1] - .1) * k, OV[2] * k]; controls.maxDistance = 11 * Math.max(1, k);
   tiltH.uniforms.h.value = (isMobile ? 1.2 : 2.2) / w; tiltV.uniforms.v.value = (isMobile ? 1.2 : 2.2) / h;
 }
 addEventListener('resize', resize); resize();
@@ -748,12 +892,14 @@ camera.position.set(...VIEWS.overview.pos); controls.target.set(...VIEWS.overvie
 
 const ACC = .3, BRK = 1.25, FRIC = .06, MAX = .9, REV = .25;
 const bg = new THREE.Color(), dayBg = new THREE.Color('#15110d'), nightBg = new THREE.Color('#060508');
+let clackDist = 0;
 function signedDelta(a, b){ let d = a - b; d = ((d + L / 2) % L + L) % L - L / 2; return d; }
 function physics(dt){
   if (goHeld && !brakeHeld) speed = speed < 0 ? Math.min(0, speed + BRK * dt) : Math.min(MAX, speed + ACC * dt);
   else if (brakeHeld){ if (reverse) speed = Math.max(-REV, speed - .3 * dt); else speed = speed > 0 ? Math.max(0, speed - BRK * dt) : Math.min(0, speed + BRK * dt); }
   else speed = speed > 0 ? Math.max(0, speed - FRIC * dt) : Math.min(0, speed + FRIC * dt);
   s = wrapS(s - speed * dt);
+  clackDist += Math.abs(speed) * dt; if (clackDist > .3){ clackDist = 0; Sound.clack(Math.min(1, Math.abs(speed) / .5)); }
   let nextSt = null, nextD = 1e9;
   for (const st of STATIONS){
     const d = signedDelta(s, st.s);
@@ -793,6 +939,7 @@ function cameraUpdate(dt){
   tiltH.enabled = tiltV.enabled = tilt;
   if (gtao) gtao.enabled = view !== 'cab';
 }
+let qrT = 0;
 function animate(t, dt){
   for (const pl of plumes){
     const ph = (t * .00009 * (pl.drift + .5) + pl.ph) % 1;
@@ -807,6 +954,8 @@ function animate(t, dt){
   const cyc = (t * .00006) % 2, u = cyc < 1 ? cyc : 2 - cyc, eased = u < .1 ? 0 : u > .9 ? 1 : (u - .1) / .8;
   metro.position.x = 1.45 + (2.75 - 1.45) * (eased * eased * (3 - 2 * eased));
   for (const c of cars){ c.x += c.dir * c.v * dt; if (c.x > 2.97) c.x = 1.22; if (c.x < 1.22) c.x = 2.97; c.g.position.set(c.x, 0, c.lane); c.g.rotation.y = c.dir > 0 ? 0 : Math.PI; }
+  if (t - qrT > 200){ qrT = t; qr.draw(); }
+  const li = Math.floor(t / 1500) % 3; sigLamps.forEach((m, k) => m.emissiveIntensity = k === li ? 1.4 + 1.4 * night : .04);
   const blink = Math.sin(t * .004) > .3 ? 1 : .1; for (const b of blinkers) b.emissiveIntensity = blink * (1.2 + 2.5 * night);
   night += (nightTarget - night) * (1 - Math.pow(.15, dt));
   bg.copy(dayBg).lerp(nightBg, night); scene.background = bg; scene.fog.color.copy(bg);
