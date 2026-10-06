@@ -176,7 +176,7 @@ const SKILLS = {
 const trophy = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b07d1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>';
 const chips = (a) => `<div class="chips">${a.map(s => `<span>${s}</span>`).join('')}</div>`;
 const CHAPTERS = {
-  vdn: { en:"VINDHYANAGAR", kicker:"Station 1 · Class 3–12", title:"Where it all began",
+  vdn: { en:"VINDHYANAGAR", kicker:"Station 1 · Class 6–12", title:"Where it all began",
     html:() => `<p class="lede">School at DPS Vindhyanagar, Madhya Pradesh.</p>
       <div class="stats"><div><span>CLASS X · CBSE</span><strong>93.8%</strong></div><div><span>CLASS XII · CBSE</span><strong>95.6%</strong></div></div>
       <div class="facts"><div><span>SCHOOL</span><strong>DPS Vindhyanagar</strong></div><div><span>STREAM</span><strong>Science, Maths</strong></div></div>` },
@@ -768,10 +768,24 @@ addEventListener('keyup', (e) => { const k = e.key.toLowerCase(); if (e.key === 
 addEventListener('blur', () => { setGo(false); setBrake(false); });
 /* ---------------- sound: soft generative music, horn, rail clicks ---------------- */
 const Sound = (() => {
-  const BPM = 70, EIGHTH = 60 / BPM / 2;
-  const CHORDS = [ { pad:[50, 57, 61, 66], bass:38 }, { pad:[47, 54, 57, 62], bass:35 }, { pad:[55, 59, 62, 66], bass:43 }, { pad:[52, 57, 61, 66], bass:45 } ];  // Dmaj7, Bm7, Gmaj7, A6
-  const MEL = [[66, 69, 73, 74, 76, 78, 81], [66, 69, 71, 74, 76, 78], [67, 71, 74, 76, 78, 79], [69, 71, 73, 76, 78, 81]];
-  let ctx = null, master, music, sfx, dry, verb, echo, noiseBuf, timer = null, nextT = 0, step = 0, on = false, lastNote = 74;
+  // An Indian rail journey: tanpura drone, bansuri flute in Raag Bhoopali (Sa Re Ga Pa Dha),
+  // and a soft tabla keherwa that fades in as the train picks up speed.
+  const BPM = 80, STEP = 60 / BPM / 2, CYCLE = 16;          // 8th-note steps; one keherwa cycle = 8 matras = 16 steps
+  const SA = 62;                                             // Sa = D4
+  const PHRASES = [
+    [[0, 2], [2, 2], [4, 4], [2, 2], [4, 2], [7, 6]],
+    [[7, 2], [9, 2], [12, 6], [9, 2], [7, 4]],
+    [[4, 2], [7, 2], [9, 4], [7, 2], [4, 2], [2, 2], [0, 6]],
+    [[-3, 2], [0, 2], [2, 2], [4, 4], [2, 2], [0, 6]],
+    [[12, 4], [14, 2], [12, 2], [9, 4], [7, 2], [4, 6]],
+    [[4, 3], [2, 1], [0, 2], [-3, 2], [0, 8]],
+    [[7, 4], [9, 2], [7, 2], [4, 2], [7, 2], [9, 2], [12, 8]],
+    [[9, 2], [7, 2], [4, 2], [2, 2], [4, 4], [0, 8]]
+  ];
+  // keherwa: Dha Ge Na Ti | Na Ka Dhi Na (one bol per matra = every 2 steps)
+  const KEHERWA = ['dha', 'ge', 'na', 'ti', 'na', 'ka', 'dhi', 'na'];
+  let ctx = null, master, music, sfx, dry, verb, echo, noiseBuf, timer = null, nextT = 0, step = 0, on = false;
+  let motion = 0, phraseUntil = 0, lastPitch = SA;
   const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
   function init(){
     if (ctx) return true;
@@ -780,50 +794,87 @@ const Sound = (() => {
     master = ctx.createGain(); master.gain.value = .9; master.connect(comp);
     music = ctx.createGain(); music.gain.value = 0; music.connect(master);
     sfx = ctx.createGain(); sfx.connect(master);
-    verb = ctx.createConvolver(); const len = Math.floor(ctx.sampleRate * 3.2), ir = ctx.createBuffer(2, len, ctx.sampleRate);
-    for (let k = 0; k < 2; k++){ const d = ir.getChannelData(k); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
-    verb.buffer = ir; const wet = ctx.createGain(); wet.gain.value = .42; verb.connect(wet); wet.connect(music);
+    verb = ctx.createConvolver(); const len = Math.floor(ctx.sampleRate * 3.4), ir = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let k = 0; k < 2; k++){ const d = ir.getChannelData(k); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.8); }
+    verb.buffer = ir; const wet = ctx.createGain(); wet.gain.value = .45; verb.connect(wet); wet.connect(music);
     dry = ctx.createGain(); dry.connect(music); dry.connect(verb);
-    echo = ctx.createDelay(2); echo.delayTime.value = EIGHTH * 3;
-    const fb = ctx.createGain(); fb.gain.value = .3; const eLp = ctx.createBiquadFilter(); eLp.type = 'lowpass'; eLp.frequency.value = 2400; const eWet = ctx.createGain(); eWet.gain.value = .35;
+    echo = ctx.createDelay(2); echo.delayTime.value = STEP * 3;
+    const fb = ctx.createGain(); fb.gain.value = .25; const eLp = ctx.createBiquadFilter(); eLp.type = 'lowpass'; eLp.frequency.value = 2000; const eWet = ctx.createGain(); eWet.gain.value = .22;
     echo.connect(eLp); eLp.connect(fb); fb.connect(echo); eLp.connect(eWet); eWet.connect(music); eWet.connect(verb);
-    noiseBuf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * .06), ctx.sampleRate); const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = (Math.random() * 2 - 1) * (1 - i / nd.length);
+    noiseBuf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * .5), ctx.sampleRate); const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
     document.addEventListener('visibilitychange', () => { if (document.hidden) ctx.suspend(); else if (on) ctx.resume(); });
     return true;
   }
-  function pad(ch, t, dur){
-    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = .4; f.frequency.setValueAtTime(650, t); f.frequency.linearRampToValueAtTime(1300, t + dur * .55); f.frequency.linearRampToValueAtTime(800, t + dur);
-    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(1, t + 1.6); g.gain.setValueAtTime(1, t + dur - .4); g.gain.linearRampToValueAtTime(0, t + dur + 2.2);
-    f.connect(g); g.connect(dry);
-    for (const m of ch.pad) for (const [type, det, lvl] of [['sine', -5, .03], ['triangle', 6, .016]]){ const o = ctx.createOscillator(); o.type = type; o.frequency.value = mtof(m); o.detune.value = det; const og = ctx.createGain(); og.gain.value = lvl; o.connect(og); og.connect(f); o.start(t); o.stop(t + dur + 2.4); }
+  function noise(t, dur, type, freq, q, gain, dest){
+    const src = ctx.createBufferSource(); src.buffer = noiseBuf; const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+    const g = ctx.createGain(); g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    src.connect(f); f.connect(g); g.connect(dest); src.start(t); src.stop(t + dur + .02);
   }
-  function bass(m, t){
-    const o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.value = mtof(m + 12);
-    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 520;
-    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.05, t + .04); g.gain.exponentialRampToValueAtTime(.0008, t + EIGHTH * 3.6);
-    o.connect(lp); lp.connect(g); g.connect(dry); o.start(t); o.stop(t + EIGHTH * 4);
+  /* tanpura: buzzy plucked drone (Pa, Sa', Sa', Sa) */
+  function tanpura(m, t, lvl){
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(lvl, t + .02); g.gain.exponentialRampToValueAtTime(.0003, t + 5.5);
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(2600, t); lp.frequency.exponentialRampToValueAtTime(700, t + 4);
+    const buzz = ctx.createBiquadFilter(); buzz.type = 'peaking'; buzz.frequency.value = mtof(m) * 6; buzz.Q.value = 4; buzz.gain.value = 9;
+    for (const det of [-4, 4]){ const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = mtof(m); o.detune.value = det; o.connect(buzz); o.start(t); o.stop(t + 5.6); }
+    buzz.connect(lp); lp.connect(g); g.connect(dry);
   }
-  function pluck(m, t, v){
-    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(3200, t); lp.frequency.exponentialRampToValueAtTime(900, t + .8);
-    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .006); g.gain.exponentialRampToValueAtTime(.0005, t + 1.6);
-    for (const [type, mult, lvl] of [['triangle', 1, 1], ['sine', 2, .25]]){ const o = ctx.createOscillator(); o.type = type; o.frequency.value = mtof(m) * mult; const og = ctx.createGain(); og.gain.value = lvl; o.connect(og); og.connect(lp); o.start(t); o.stop(t + 1.7); }
-    lp.connect(g); g.connect(dry); g.connect(echo);
+  /* bansuri: breathy sine with delayed vibrato and a small glide (meend) from the previous note */
+  function flute(m, t, dur, v){
+    const f0 = mtof(m), from = mtof(lastPitch); lastPitch = m;
+    const o = ctx.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(Math.abs(from - f0) < f0 * .3 ? from : f0, t); o.frequency.exponentialRampToValueAtTime(f0, t + .09);
+    const o2 = ctx.createOscillator(); o2.type = 'triangle'; o2.frequency.value = f0 * 2;
+    const vib = ctx.createOscillator(); vib.frequency.value = 5.2; const vd = ctx.createGain(); vd.gain.setValueAtTime(0, t); vd.gain.linearRampToValueAtTime(f0 * .006, t + Math.min(.5, dur * .6)); vib.connect(vd); vd.connect(o.frequency);
+    const g = ctx.createGain(), end = t + dur;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .07); g.gain.setValueAtTime(v, end - .06); g.gain.linearRampToValueAtTime(v * .55, end); g.gain.linearRampToValueAtTime(0, end + .22);
+    const h = ctx.createGain(); h.gain.value = .06; o2.connect(h); h.connect(g); o.connect(g);
+    g.connect(dry); g.connect(echo);
+    for (const x of [o, o2, vib]){ x.start(t); x.stop(end + .25); }
+    noise(t, .18, 'bandpass', f0 * 2.2, 2.5, v * .35, dry);                  // breath at the attack
+  }
+  /* tabla strokes */
+  function bayan(t, lvl){ const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(68, t + .28); const g = ctx.createGain(); g.gain.setValueAtTime(lvl, t); g.gain.exponentialRampToValueAtTime(.0005, t + .5); o.connect(g); g.connect(dry); o.start(t); o.stop(t + .55); }
+  function dayan(t, lvl, ring){
+    const f = mtof(SA); for (const [mult, a] of [[1, 1], [2, .45], [3, .2]]){ const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f * mult; const g = ctx.createGain(); g.gain.setValueAtTime(lvl * a, t); g.gain.exponentialRampToValueAtTime(.0003, t + ring / mult); o.connect(g); g.connect(dry); o.start(t); o.stop(t + ring + .05); }
+    noise(t, .025, 'highpass', 2500, .7, lvl * .5, dry);
+  }
+  function stroke(bol, t, k){
+    const L = .11 * k;
+    if (bol === 'dha'){ bayan(t, L * 1.1); dayan(t, L * .55, .55); }
+    else if (bol === 'dhi'){ bayan(t, L); dayan(t, L * .45, .4); }
+    else if (bol === 'ge') bayan(t, L * .9);
+    else if (bol === 'na') dayan(t, L * .5, .5);
+    else if (bol === 'ti') dayan(t, L * .32, .09);
+    else if (bol === 'ka') noise(t, .05, 'lowpass', 900, .7, L * .35, dry);
   }
   function schedule(i, t){
-    const chIdx = Math.floor(i / 16) % 4, ch = CHORDS[chIdx];
-    if (i % 16 === 0) pad(ch, t, EIGHTH * 16);
-    if (i % 4 === 0) bass(ch.bass, t);
-    const busy = Math.floor(i / 64) % 2 ? 1 : .6, p = (i % 2 === 0 ? .34 : .15) * busy;
-    if (Math.random() < p){
-      const target = lastNote + (Math.random() < .5 ? -1 : 1) * (1 + Math.floor(Math.random() * 4));
-      let best = MEL[chIdx][0]; for (const n of MEL[chIdx]) if (Math.abs(n - target) < Math.abs(best - target)) best = n;
-      lastNote = best; pluck(best, t + (Math.random() - .5) * .012, .04 + Math.random() * .03);
+    const pos = i % CYCLE;
+    // tanpura cycle every half keherwa (8 steps = 3s): Pa, Sa', Sa', Sa
+    if (pos % 2 === 0){ const tp = [SA - 17, SA - 12, SA - 12, SA - 24][(pos / 2) % 4]; tanpura(tp, t, .026); }
+    // tabla follows the train
+    if (motion > .03){
+      if (pos % 2 === 0) stroke(KEHERWA[pos / 2], t, motion);
+      else if (Math.random() < .25 * motion) stroke('ti', t, motion * .7);
+    }
+    // flute phrases with breathing room between them
+    if (pos % 4 === 0 && i >= phraseUntil && Math.random() < .55){
+      const ph = PHRASES[Math.floor(Math.random() * PHRASES.length)];
+      let at = t, steps = 0;
+      for (const [off, len] of ph){ flute(SA + off, at, len * STEP * .96, .072 + Math.random() * .014); at += len * STEP; steps += len; }
+      phraseUntil = i + steps + 8 + Math.floor(Math.random() * 3) * 4;
     }
   }
-  function tick(){ if (!on) return; const now = ctx.currentTime; if (nextT < now) nextT = now + .08; while (nextT < now + .9){ schedule(step, nextT); nextT += EIGHTH; step++; } }
+  function tick(){ if (!on) return; const now = ctx.currentTime; if (nextT < now) nextT = now + .08; while (nextT < now + .9){ schedule(step, nextT); nextT += STEP; step++; } }
   function ramp(v, secs){ const g = music.gain, n = ctx.currentTime; g.cancelScheduledValues(n); g.setValueAtTime(g.value, n); g.linearRampToValueAtTime(v, n + secs); }
-  function start(){ if (!init()) return; on = true; ctx.resume(); step = 0; nextT = ctx.currentTime + .15; ramp(.5, 3); clearInterval(timer); timer = setInterval(tick, 120); tick(); }
+  function start(){ if (!init()) return; on = true; ctx.resume(); step = 0; phraseUntil = 4; nextT = ctx.currentTime + .15; ramp(.95, 3); clearInterval(timer); timer = setInterval(tick, 120); tick(); }
   function stop(){ if (!ctx) return; on = false; clearInterval(timer); ramp(0, .8); }
+  function setMotion(v, dt){ motion += (v - motion) * Math.min(1, dt * 1.2); }
+  function chime(){
+    if (!on) return; const t = ctx.currentTime + .05;
+    [[SA + 12, 0], [SA + 7, .32], [SA + 4, .64], [SA, .96]].forEach(([m, d]) => {
+      for (const [mult, a, dec] of [[1, 1, 2.2], [2.76, .3, .9], [5.4, .12, .4]]){ const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = mtof(m) * mult; const g = ctx.createGain(); g.gain.setValueAtTime(0, t + d); g.gain.linearRampToValueAtTime(.05 * a, t + d + .01); g.gain.exponentialRampToValueAtTime(.0002, t + d + dec); o.connect(g); g.connect(dry); o.start(t + d); o.stop(t + d + dec + .05); }
+    });
+  }
   function horn(){
     if (!init()) return; ctx.resume();
     const now = ctx.currentTime, g = ctx.createGain(), lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1400;
@@ -833,9 +884,9 @@ const Sound = (() => {
   }
   function clack(level){
     if (!on) return; const t = ctx.currentTime;
-    for (const dt of [0, .085]){ const src = ctx.createBufferSource(); src.buffer = noiseBuf; const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1100; bp.Q.value = 1.2; const g = ctx.createGain(); g.gain.value = .045 * level; src.connect(bp); bp.connect(g); g.connect(sfx); src.start(t + dt); }
+    for (const dt of [0, .085]) noise(t + dt, .05, 'bandpass', 1100, 1.2, .04 * level, sfx);
   }
-  return { start, stop, horn, clack, get on(){ return on; } };
+  return { start, stop, horn, clack, chime, setMotion, get on(){ return on; } };
 })();
 let musicWanted = true; try { musicWanted = localStorage.getItem('musicOff') !== '1'; } catch (_) {}
 function setMusic(v, save){
@@ -855,7 +906,7 @@ $('horn').addEventListener('click', horn);
 /* picking */
 const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
 let downAt = null;
-const LABEL = { projects:'OffSignal · send files with light', vdn:'Vindhyanagar · DPS, Class 3–12', vlr:'VIT Vellore · B.Tech CSE', ggn:'Gurgaon · Fareportal (CheapOAir)', train:'The train · hold GO to drive', horn:'Controller · sound the horn' };
+const LABEL = { projects:'OffSignal · send files with light', vdn:'Vindhyanagar · DPS, Class 6–12', vlr:'VIT Vellore · B.Tech CSE', ggn:'Gurgaon · Fareportal (CheapOAir)', train:'The train · hold GO to drive', horn:'Controller · sound the horn' };
 const pickables = []; scene.traverse(o => { if (o.isMesh && o.userData.pick) pickables.push(o); });
 function pick(e){
   const rc = renderer.domElement.getBoundingClientRect();
@@ -899,13 +950,14 @@ function physics(dt){
   else if (brakeHeld){ if (reverse) speed = Math.max(-REV, speed - .3 * dt); else speed = speed > 0 ? Math.max(0, speed - BRK * dt) : Math.min(0, speed + BRK * dt); }
   else speed = speed > 0 ? Math.max(0, speed - FRIC * dt) : Math.min(0, speed + FRIC * dt);
   s = wrapS(s - speed * dt);
+  Sound.setMotion(Math.min(1, Math.abs(speed) / .45), dt);
   clackDist += Math.abs(speed) * dt; if (clackDist > .3){ clackDist = 0; Sound.clack(Math.min(1, Math.abs(speed) / .5)); }
   let nextSt = null, nextD = 1e9;
   for (const st of STATIONS){
     const d = signedDelta(s, st.s);
     if (d > 0 && d < nextD){ nextD = d; nextSt = st; }
     const inZone = d <= .12 && d >= -.75;
-    if (inZone && Math.abs(speed) < .002 && lastStop !== st.id){ lastStop = st.id; toast(`<b>${CHAPTERS[st.id].en}</b> · chapter unlocked`); visit(st.id); }
+    if (inZone && Math.abs(speed) < .002 && lastStop !== st.id){ lastStop = st.id; Sound.chime(); toast(`<b>${CHAPTERS[st.id].en}</b> · chapter unlocked`); visit(st.id); }
     if (!inZone && lastStop === st.id && Math.abs(d) > 1) lastStop = null;
     if (d > 1.2 && d < 1.6 && !flags['a' + st.id] && speed > .1){ flags['a' + st.id] = true; toast(`Next station: <b>${CHAPTERS[st.id].en}</b>. Brake to stop at the platform.`); }
     if (d > 2.5) flags['a' + st.id] = false;
@@ -974,7 +1026,7 @@ function loop(now){
 }
 requestAnimationFrame(loop);
 document.fonts && document.fonts.ready.then(() => { for (const tex of boardTexes){ tex.userData.draw(tex.image.getContext('2d'), tex.image.width, tex.image.height); tex.needsUpdate = true; } });
-window.__app = { visit, setView, set goHeld(v){ setGo(v); }, set brakeHeld(v){ setBrake(v); }, setNight(v){ night = nightTarget = v; }, setS(v){ s = v; }, STATIONS };
+window.__app = { visit, setView, set goHeld(v){ setGo(v); }, set brakeHeld(v){ setBrake(v); }, setNight(v){ night = nightTarget = v; }, Sound, setS(v){ s = v; }, STATIONS };
 </script>
 </body>
 </html>
